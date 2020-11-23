@@ -1,0 +1,83 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-one
+  labels:
+    istio-injection: enabled
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs-test
+  namespace: default
+spec:
+  gateways: ['test-gateway']
+  hosts: ['*']
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: svc-test-app.demo-one.svc.cluster.local
+        port:
+          number: 8880
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-test-app
+  namespace: demo-one
+spec:
+  selector:
+    app: test-app
+  ports:
+  - name: http-svc
+    port: 8880
+    targetPort: 8880
+    protocol: TCP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-test-app
+  namespace: demo-one
+spec:
+  replicas: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+        group: test-app
+        version: latest
+    spec:
+      containers:
+      - name: test-app
+        image: docker.io/revl/test-app:1.0.0
+        imagePullPolicy: Always
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        ports:
+        - name: http-svc
+          containerPort: 8880
+
