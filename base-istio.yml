@@ -8,7 +8,10 @@ spec:
   selector:
     istio: ingressgateway
   servers:
-  - hosts: ['*']
+  - hosts:
+    - svc-test-app.demo-one.svc.cluster.local
+    - svc-test-app.demo-two.svc.cluster.local
+    - keycloak.keycloak.svc.cluster.local
     port:
       name: http
       number: 80

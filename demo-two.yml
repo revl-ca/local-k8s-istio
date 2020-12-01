@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: demo-one
+  name: demo-two
   labels:
     istio-injection: enabled
 
@@ -10,18 +10,18 @@ metadata:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: vs-demo-one
+  name: vs-demo-two
   namespace: default
 spec:
   gateways: ['test-gateway']
-  hosts: ['svc-test-app.demo-one.svc.cluster.local']
+  hosts: ['svc-test-app.demo-two.svc.cluster.local']
   http:
   - match:
     - uri:
-        prefix: /demo-one
+        prefix: /demo-two
     route:
     - destination:
-        host: svc-test-app.demo-one.svc.cluster.local
+        host: svc-test-app.demo-two.svc.cluster.local
         port:
           number: 8880
 
@@ -30,7 +30,7 @@ apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
   name: sso-configuration
-  namespace: demo-one
+  namespace: demo-two
 spec:
   selector:
     matchLabels:
@@ -45,7 +45,7 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: service-rbac-policies
-  namespace: demo-one
+  namespace: demo-two
 spec:
   action: ALLOW
   selector:
@@ -55,14 +55,14 @@ spec:
   - when:
     - key: request.auth.claims[roles]
       values:
-      - istio-resource-reader
+      - istio-resource-writer
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: svc-test-app
-  namespace: demo-one
+  namespace: demo-two
 spec:
   selector:
     app: test-app
@@ -77,7 +77,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: deploy-test-app
-  namespace: demo-one
+  namespace: demo-two
 spec:
   replicas: 2
   strategy:
