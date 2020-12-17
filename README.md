@@ -123,7 +123,7 @@ kubectl apply -f demo-two.yml
 - Get a JWT
 
 ```
-export TOKEN=$(curl --silent --request POST http://keycloak.keycloak.svc.cluster.local:8080/auth/realms/test-istio/protocol/openid-connect/token --header Content-Type: application/x-www-form-urlencoded --data client_id=test-service-account&client_secret=cedddd8f-e84b-453d-b86f-8d571cc99fd1&grant_type=client_credentials)
+export TOKEN=$(curl --silent --request POST http://keycloak.keycloak.svc.cluster.local:8080/auth/realms/test-istio/protocol/openid-connect/token --header "Content-Type: application/x-www-form-urlencoded" --data "client_id=test-service-account&client_secret=cedddd8f-e84b-453d-b86f-8d571cc99fd1&grant_type=client_credentials" | jq -r ".access_token")
 ```
 
 - Call the service using JWT
