@@ -62,6 +62,25 @@ spec:
     targetPort: jgroups
 
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs-keycloak
+  namespace: default
+spec:
+  gateways: ['test-gateway']
+  hosts: ['keycloak.keycloak.svc.cluster.local']
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: keycloak.keycloak.svc.cluster.local
+        port:
+          number: 8080
+
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:

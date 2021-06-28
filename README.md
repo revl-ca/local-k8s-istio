@@ -34,7 +34,7 @@ kubectl create namespace istio-system
 - Create the Istio manifests
 
 ```
-istioctl manifest generate | kubectl apply -f -
+istioctl manifest generate --set values.prometheus.enabled=false | kubectl apply -f -
 ```
 
 Note: Add `--set values.prometheus.enabled=false` to install without Prometheus
