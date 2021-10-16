@@ -1,0 +1,84 @@
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: jwt-to-headers
+  namespace: demo-two
+spec:
+  workloadSelector:
+    labels:
+      group: test-app
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      listener:
+        filterChain:
+          filter:
+            name: envoy.http_connection_manager
+            subFilter:
+              name: envoy.router
+
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.lua
+        typed_config:
+          "@type": "type.googleapis.com/envoy.config.filter.http.lua.v2.Lua"
+          inlineCode: |
+            function jwt_to_header(prefix, table, request_handle)
+              for key, value in pairs(table) do
+                if (type(value) == "string") then
+                  request_handle:headers():replace(prefix.."-"..key, value)
+                end
+              end
+            end
+
+            function join(list, separator)
+              local tmp = { }
+              for key, value in ipairs(list) do
+                tmp[#tmp+1] = tostring(value)
+              end
+
+              return table.concat(tmp, separator)
+            end
+
+            function envoy_on_request(request_handle)
+              local meta = request_handle:streamInfo():dynamicMetadata():get("envoy.filters.http.jwt_authn")
+              local iss, claims = next(meta)
+
+              if (type(claims) ~= nil) then
+                jwt_to_header("x-jwt", claims, request_handle)
+              end
+
+              if (type(claims.roles) ~= nil) then
+                local roles = join(claims.roles, " ")
+
+                request_handle:headers():replace("x-jwt-roles", roles)
+              end
+
+              if (type(claims.realm_access) ~= nil and type(claims.realm_access.roles) ~= nil) then
+                local roles = join(claims.realm_access.roles, " ")
+
+                request_handle:headers():replace("x-jwt-realm-roles", roles)
+              end
+            end
+
+            function envoy_on_response(response_handle)
+              -- use metadata? https://www.bookstack.cn/read/envoyproxy-1.7.0/b46637d8dd19538a.md
+              local status = response_handle:headers():get(":status")
+
+              if (string.match(status, "[4].*")) then
+                local payload = [[
+                  {
+                    "error": true,
+                    "message": "%s",
+                    "status_code": %d
+                  }
+                ]]
+                local data = response_handle:body():setBytes(string.format(payload, "RBAC: Access denied", status))
+
+                response_handle:headers():replace("Content-Length", data)
+                response_handle:headers():replace("Content-Type", "application/json")
+              end
+            end
+
