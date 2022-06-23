@@ -1,0 +1,60 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: demo-app-outbound
+  namespace: demo-app
+spec:
+  workloadSelector:
+    labels:
+      app: demo-app
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_OUTBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.http_connection_manager
+            subFilter:
+              name: envoy.router
+
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.lua
+        typed_config:
+          '@type': type.googleapis.com/envoy.config.filter.http.lua.v2.Lua
+          inlineCode: |
+            function get_jwt_sso(request_handle)
+              if (request_handle:headers():get("x-service-account") == nil) then
+                return nil
+              end
+
+              local port = "8880"
+              local server = "svc-token-provider.token-provider.svc.cluster.local"
+              local sac = request_handle:headers():get("x-service-account")
+
+              local headers, body = request_handle:httpCall("outbound|"..port.."||"..server, {
+                [":method"] = "GET",
+                [":path"] = "/token/"..sac,
+                [":authority"] = server
+              }, "", 1000)
+
+              request_handle:headers():add("x-token-provider-http-status", headers[":status"])
+
+              if (headers[":status"] == "200") then
+                return tostring(body)
+              end
+
+              return nil
+            end
+
+            function envoy_on_request(request_handle)
+              local path = request_handle:headers():get(":path")
+              local token = get_jwt_sso(request_handle)
+
+              if token ~= nil then
+                request_handle:headers():replace("Authorization", "Bearer "..token)
+              end
+            end
+
